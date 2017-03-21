@@ -9,16 +9,21 @@ const desktopCapturer = electron.desktopCapturer;
 const fs = require('fs');
 //eval(fs.readFileSync('./RecordRTC.js','utf-8'));
 
+let gTargetSourceId = -1;
+
 let gWinNum = 0;
 let localStream = null;
-const {width, height} = electron.screen.getPrimaryDisplay().workAreaSize;
+const {
+    width,
+    height
+} = electron.screen.getPrimaryDisplay().workAreaSize;
 desktopCapturer.getSources({
     types: ['window', 'screen']
 }, (error, sources) => {
     if (error) throw error;
     for (var i = 0; i < sources.length; ++i) {
         console.log("sources[i].name = " + sources[i].name);
-        addImage(sources[i].thumbnail);
+        addImage(sources[i].thumbnail, sources[i].id);
         if (sources[i].name == "Entire screen") {
             navigator.webkitGetUserMedia({
                 audio: false,
@@ -33,14 +38,32 @@ desktopCapturer.getSources({
                     }
                 }
             }, gotStream, getUserMediaError);
-            //return;
         }
     }
 });
 
-function addImage(image) {
+function addImage(image, id) {
     const elm = document.createElement("img");
+    elm.id = id;
     elm.src = image.toDataURL();
+    elm.onclick = () => {
+        gTargetSourceId = elm.id;
+        console.log(`clicked ${elm.id}`);
+        navigator.webkitGetUserMedia({
+                audio: false,
+                video: {
+                    mandatory: {
+                        chromeMediaSource: 'desktop',
+                        chromeMediaSourceId: elm.id,
+                        minWidth: width,
+                        maxWidth: 2000,
+                        minHeight: height,
+                        maxHeight: 2048
+                    }
+                }
+            }, gotStream, getUserMediaError);
+
+    };
     document.body.appendChild(elm);
 }
 
@@ -94,14 +117,12 @@ recStopBtn.addEventListener('click', () => {
         reader.addEventListener('loadend', () => {
             const buf = reader.result;
             console.log(buf);
-            fs.writeFileSync("test.webm", toBuffer(buf),{encoding: null});
+            fs.writeFileSync("test.webm", toBuffer(buf), {
+                encoding: null
+            });
             console.log("file has been written!")
             //video.src = URL.createObjectURL(buf);
         });
         reader.readAsArrayBuffer(blob);
-
     });
-
-
-
 }, false);
